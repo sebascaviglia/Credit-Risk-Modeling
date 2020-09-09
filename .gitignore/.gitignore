@@ -1,0 +1,101 @@
+loandata<-read.csv("D:/R/loandata.csv")
+summary(loandata)
+
+#miramos la estructura 
+str(loandata)
+
+library(gmodels)
+# Probabilidad de default
+CrossTable(loandata$loan_status)
+
+# Crosstable
+cross1<-CrossTable(loandata$grade, loandata$loan_status,prop.r = TRUE,prop.c = FALSE,prop.t = FALSE,prop.chisq = FALSE)
+
+
+#Plotting the graph to see the proportion of defaulters across grades
+plot(cross1$prop.tbl,col=c("green","red"),main="Propertion of Defaulters/Non-defaulters with respect to grade",xlab = "Grade of customer",ylab = "1-Default 0-Non-Default")
+
+#Checking for NA values
+anyNA(loandata)
+
+
+#Identify the NAs in the variable
+summary(loandata$int_rate)
+
+#Deleting rows containing NAs
+na_index<-which(is.na(loandata$int_rate))
+loandata_delrow_na<-loandata[-c(na_index),]
+#Identify that NA values have been eliminated 
+summary(loandata_delrow_na$int_rate)
+
+Creamos el conjunto de entreamiento y test
+
+set.seed(1234)
+
+library(caret)
+
+
+index_train<-createDataPartition(y=loandata_delrow_na$loan_status,p=2/3,list=FALSE)
+training_data<-loandata_delrow_na[index_train,]
+testing_data<-loandata_delrow_na[-index_train,]
+#Check the dimention of train and test set
+dim(training_data); dim(testing_data)
+
+Regresion logistica
+
+#aplicamos el modelo con el data set training
+training_data$loan_status_fac<-as.factor(training_data$loan_status)
+modLog<-train(loan_status_fac~., data=training_data,method="glm")
+
+summary(modLog)
+
+#Convert to factor
+prediction_fac<-as.factor(prediction)
+testing_data$loan_status_fac<-as.factor(testing_data$loan_status)
+#Checking the structure
+str(prediction_fac)
+
+str(testing_data$loan_status_fac)
+
+# vemos la eficiencia del modelo
+library(e1071)
+confusionMatrix(table(prediction_fac,testing_data$loan_status_fac))
+
+
+#AREA UNDER THE CURVE
+library(gplots)
+
+library(ROCR)
+#Creating a variable containing dependent variable of train set
+category <- training_data$loan_status
+summary(category)
+
+
+#Sequence generation
+prediction2 <- rev(seq_along(category))
+#Determining True positive and false positive rates
+prediction2[1:1] <- mean(prediction2[1:1])
+#Find out AUC
+library(pROC)
+
+roc_obj <- roc(category, prediction2)
+auc(roc_obj)
+
+#Plot AUC
+library(rpart)
+library("ROSE")
+
+library(Epi)
+roc.curve(training_data$loan_status,prediction2)
+
+#arbol de decision 
+
+#DECISION TREE USING INFORMATION GAIN
+#Train the decision tree classifier with 'information gain' as criteria 
+trctrl<-trainControl(method="repeatedcv",number=10,repeats=3)
+library(e1071)
+set.seed(3333)
+training_data$loan_status_fac<-as.factor(training_data$loan_status)
+dtree_fit<-train(loan_status_fac~.,data=training_data,method="rpart",parms=list(split="information"),trControl=trctrl,tuneLength=10)
+#Check the result of the "train" method
+dtree_fit
